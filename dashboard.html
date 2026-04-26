@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>新濠信義｜客戶分析儀表板</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold: #b89660; --gold-light: #d4b483; --gold-dark: #8a6f3e;
+      --white: #ffffff; --off-white: #f8f5f0; --cream: #f0ebe3;
+      --dark: #1a1a1a; --text: #2c2c2c; --muted: #7a7060; --border: #ddd5c5;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--off-white); color: var(--text); font-family: 'Noto Serif TC', serif; font-weight: 300; letter-spacing: 0.04em; }
+
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(255,255,255,0.96); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 60px; backdrop-filter: blur(8px);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    }
+    .nav-logo { height: 36px; filter: invert(1); }
+    .nav-links { display: flex; gap: 40px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 13px; letter-spacing: 0.2em; transition: color 0.3s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--gold); }
+    .nav-badge { background: var(--gold); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.1em; margin-left: 6px; }
+
+    .page-body { padding-top: 72px; }
+
+    .dash-header {
+      background: var(--dark); padding: 48px 60px 40px; position: relative; overflow: hidden;
+    }
+    .dash-header::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(to right, var(--gold), var(--gold-light), var(--gold));
+    }
+    .dash-header h1 { font-size: 22px; font-weight: 400; color: var(--gold-light); letter-spacing: 0.4em; margin-bottom: 8px; }
+    .dash-header p { color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 0.3em; }
+    .dash-meta { position: absolute; right: 60px; top: 50%; transform: translateY(-50%); text-align: right; }
+    .dash-meta .update-time { color: rgba(255,255,255,0.35); font-size: 11px; letter-spacing: 0.2em; }
+    .dash-meta .data-range { color: var(--gold-light); font-size: 12px; letter-spacing: 0.2em; margin-top: 4px; }
+
+    .dash-content { padding: 40px 60px 80px; }
+
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+    }
+    .toolbar-info { font-size: 11px; letter-spacing: 0.3em; color: var(--muted); }
+    .upload-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px;
+      background: var(--dark); color: var(--gold); border: 1px solid var(--dark);
+      font-size: 12px; letter-spacing: 0.3em; cursor: pointer; font-family: inherit;
+      transition: background 0.3s; position: relative;
+    }
+    .upload-btn:hover { background: var(--gold-dark); border-color: var(--gold-dark); color: #fff; }
+    .upload-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 32px; }
+    .kpi-card { background: var(--white); border: 1px solid var(--border); padding: 24px 20px; border-top: 2px solid var(--gold); }
+    .kpi-label { font-size: 10px; letter-spacing: 0.4em; color: var(--muted); margin-bottom: 10px; }
+    .kpi-value { font-size: 32px; font-weight: 300; color: var(--dark); letter-spacing: 0.05em; line-height: 1; }
+    .kpi-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.2em; margin-top: 6px; }
+    .kpi-highlight .kpi-value { color: var(--gold); }
+
+    .insight-bar {
+      background: var(--dark); padding: 20px 28px; margin-bottom: 32px;
+      display: flex; align-items: flex-start; gap: 16px;
+    }
+    .insight-icon { color: var(--gold); font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .insight-text { color: rgba(255,255,255,0.75); font-size: 13px; line-height: 2; letter-spacing: 0.15em; }
+    .insight-text strong { color: var(--gold-light); font-weight: 400; }
+
+    .charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+    .charts-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+    .chart-full { margin-bottom: 16px; }
+
+    .chart-card { background: var(--white); border: 1px solid var(--border); padding: 24px; }
+    .chart-title { font-size: 11px; letter-spacing: 0.4em; color: var(--muted); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--cream); }
+    .chart-title span { color: var(--gold); }
+    .chart-wrap { position: relative; height: 220px; display: flex; align-items: center; justify-content: center; }
+    .chart-wrap.tall { height: 300px; }
+    .chart-wrap.medium { height: 260px; }
+
+    .table-section { background: var(--white); border: 1px solid var(--border); margin-bottom: 16px; }
+    .table-header { padding: 20px 24px; border-bottom: 1px solid var(--cream); display: flex; align-items: center; justify-content: space-between; }
+    .table-header h3 { font-size: 11px; letter-spacing: 0.4em; color: var(--muted); font-weight: 400; }
+    .table-count { font-size: 11px; color: var(--gold); letter-spacing: 0.2em; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--off-white); }
+    thead th { padding: 12px 16px; text-align: left; font-size: 10px; letter-spacing: 0.3em; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--cream); transition: background 0.2s; }
+    tbody tr:hover { background: #fdf9f4; }
+    tbody tr:last-child { border-bottom: none; }
+    td { padding: 11px 16px; letter-spacing: 0.05em; white-space: nowrap; }
+    .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 1px; letter-spacing: 0.15em; }
+    .badge-room { background: #f0ebe3; color: var(--gold-dark); }
+    .badge-purpose { background: #e8f0e8; color: #4a7a4a; }
+    .badge-purpose.invest { background: #f0e8e8; color: #7a4a4a; }
+    .badge-purpose.gift { background: #e8eef8; color: #4a5a7a; }
+    .badge-source { background: var(--cream); color: var(--muted); }
+    .td-time { color: var(--muted); font-size: 11px; }
+
+    footer { background: var(--dark); text-align: center; padding: 32px 24px; font-size: 11px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25); line-height: 2; }
+
+    @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) {
+      nav { padding: 14px 20px; }
+      .dash-header { padding: 36px 20px 30px; }
+      .dash-meta { display: none; }
+      .dash-content { padding: 24px 20px 60px; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .charts-grid, .charts-grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) { .nav-links { display: none; } }
+
+    /* ── 篩選器 ── */
+    .filter-toggle { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:var(--white); color:var(--text); border:1px solid var(--border); font-size:12px; letter-spacing:0.25em; cursor:pointer; font-family:inherit; transition:all 0.2s; }
+    .filter-toggle:hover, .filter-toggle.active { background:var(--dark); color:var(--gold); border-color:var(--dark); }
+    .filter-badge { background:var(--gold); color:#fff; font-size:10px; padding:1px 6px; border-radius:8px; letter-spacing:0.05em; }
+
+    .filter-panel { background:var(--white); border:1px solid var(--border); border-top:2px solid var(--gold); margin-bottom:24px; padding:24px 28px; display:none; }
+    .filter-panel.open { display:block; }
+    .filter-row { display:flex; flex-wrap:wrap; gap:24px; margin-bottom:20px; }
+    .filter-group { flex:1; min-width:160px; }
+    .filter-group-title { font-size:10px; letter-spacing:0.4em; color:var(--muted); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--cream); }
+    .filter-date-row { display:flex; align-items:center; gap:8px; }
+    .filter-date-input { border:1px solid var(--border); background:var(--off-white); padding:6px 10px; font-size:12px; font-family:inherit; color:var(--text); letter-spacing:0.05em; outline:none; width:140px; }
+    .filter-date-input:focus { border-color:var(--gold); }
+    .filter-chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .filter-chip { display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+    .filter-chip input[type=checkbox] { display:none; }
+    .filter-chip-label { font-size:12px; padding:4px 12px; border:1px solid var(--border); color:var(--muted); letter-spacing:0.1em; background:var(--off-white); transition:all 0.15s; cursor:pointer; border-radius:1px; user-select:none; }
+    .filter-chip input:checked + .filter-chip-label { background:var(--dark); color:var(--gold); border-color:var(--dark); }
+    .filter-chip-label:hover { border-color:var(--gold); color:var(--gold-dark); }
+    .filter-actions { display:flex; gap:10px; align-items:center; padding-top:16px; border-top:1px solid var(--cream); margin-top:4px; }
+    .filter-clear-btn { padding:8px 20px; background:none; border:1px solid var(--border); font-size:12px; letter-spacing:0.2em; color:var(--muted); cursor:pointer; font-family:inherit; transition:all 0.2s; }
+    .filter-clear-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .filter-result-info { font-size:11px; color:var(--muted); letter-spacing:0.2em; margin-left:auto; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <img class="nav-logo" src="260227-115 新濠信義LOGO字(白色).png"
+       onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" alt="新濠信義"/>
+  <span style="display:none; font-size:16px; letter-spacing:0.3em; color:#1a1a1a;">新濠信義</span>
+  <div class="nav-links">
+    <span style="font-size:13px; letter-spacing:0.3em; color:var(--muted);">客戶分析儀表板 <span class="nav-badge">內部</span></span>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="dash-header">
+    <h1>客戶分析儀表板</h1>
+    <p>新濠信義 SurveyCake 預約填單分析</p>
+    <div class="dash-meta">
+      <div class="update-time" id="updateTime">—</div>
+      <div class="data-range" id="dataRange">—</div>
+    </div>
+  </div>
+
+  <div class="dash-content">
+    <div class="toolbar">
+      <div class="toolbar-info" id="toolbarInfo">載入中…</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button id="filterToggleBtn" class="filter-toggle" onclick="toggleFilter()">▼ 篩選條件 <span id="filterBadge" class="filter-badge" style="display:none;">0</span></button>
+        <button id="refreshBtn" class="upload-btn" style="display:none;" onclick="manualRefresh()">↻ 立即更新</button>
+        <label class="upload-btn">
+          ↑ 上傳 CSV
+          <input type="file" id="reloadInput" accept=".csv"/>
+        </label>
+      </div>
+    </div>
+
+    <!-- 篩選面板 -->
+    <div class="filter-panel" id="filterPanel">
+      <div class="filter-row">
+        <div class="filter-group">
+          <div class="filter-group-title">日期區間</div>
+          <div class="filter-date-row">
+            <input type="date" id="fDateFrom" class="filter-date-input" onchange="filterAndRender()"/>
+            <span style="color:var(--muted);font-size:13px;">～</span>
+            <input type="date" id="fDateTo" class="filter-date-input" onchange="filterAndRender()"/>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-group-title">房型</div>
+          <div class="filter-chips" id="fRoom">
+            <label class="filter-chip"><input type="checkbox" value="1房" onchange="filterAndRender()"/><span class="filter-chip-label">1房</span></label>
+            <label class="filter-chip"><input type="checkbox" value="2房" onchange="filterAndRender()"/><span class="filter-chip-label">2房</span></label>
+            <label class="filter-chip"><input type="checkbox" value="2+1房" onchange="filterAndRender()"/><span class="filter-chip-label">2+1房</span></label>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-group-title">坪數</div>
+          <div class="filter-chips">
+            <label class="filter-chip"><input type="checkbox" value="10坪" onchange="filterAndRender()"/><span class="filter-chip-label">10坪</span></label>
+            <label class="filter-chip"><input type="checkbox" value="20坪" onchange="filterAndRender()"/><span class="filter-chip-label">20坪</span></label>
+            <label class="filter-chip"><input type="checkbox" value="26坪" onchange="filterAndRender()"/><span class="filter-chip-label">26坪</span></label>
+            <label class="filter-chip"><input type="checkbox" value="其他" onchange="filterAndRender()"/><span class="filter-chip-label">其他</span></label>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-group-title">用途</div>
+          <div class="filter-chips">
+            <label class="filter-chip"><input type="checkbox" value="首購" onchange="filterAndRender()"/><span class="filter-chip-label">首購</span></label>
+            <label class="filter-chip"><input type="checkbox" value="置產" onchange="filterAndRender()"/><span class="filter-chip-label">置產</span></label>
+            <label class="filter-chip"><input type="checkbox" value="投資" onchange="filterAndRender()"/><span class="filter-chip-label">投資</span></label>
+            <label class="filter-chip"><input type="checkbox" value="贈與" onchange="filterAndRender()"/><span class="filter-chip-label">贈與</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="filter-row" style="margin-bottom:0;">
+        <div class="filter-group" style="min-width:100%;flex-basis:100%;">
+          <div class="filter-group-title">購屋預算</div>
+          <div class="filter-chips">
+            <label class="filter-chip"><input type="checkbox" value="1500萬以下" onchange="filterAndRender()"/><span class="filter-chip-label">1500萬以下</span></label>
+            <label class="filter-chip"><input type="checkbox" value="1500-2000萬" onchange="filterAndRender()"/><span class="filter-chip-label">1500–2000萬</span></label>
+            <label class="filter-chip"><input type="checkbox" value="2000-2500萬" onchange="filterAndRender()"/><span class="filter-chip-label">2000–2500萬</span></label>
+            <label class="filter-chip"><input type="checkbox" value="2500-3000萬" onchange="filterAndRender()"/><span class="filter-chip-label">2500–3000萬</span></label>
+            <label class="filter-chip"><input type="checkbox" value="3000-3500萬" onchange="filterAndRender()"/><span class="filter-chip-label">3000–3500萬</span></label>
+            <label class="filter-chip"><input type="checkbox" value="3500萬以上" onchange="filterAndRender()"/><span class="filter-chip-label">3500萬以上</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="filter-clear-btn" onclick="clearFilters()">✕ 清除全部篩選</button>
+        <span class="filter-result-info" id="filterResultInfo"></span>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">總填單數</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub">筆填單記錄</div>
+      </div>
+      <div class="kpi-card kpi-highlight">
+        <div class="kpi-label">去重後筆數（依IP）</div>
+        <div class="kpi-value" id="kpiUnique">—</div>
+        <div class="kpi-sub">排除重複填單</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">近 30 天新增</div>
+        <div class="kpi-value" id="kpiRecent">—</div>
+        <div class="kpi-sub">筆填單</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最熱門來源</div>
+        <div class="kpi-value" style="font-size:18px; padding-top:4px;" id="kpiTopSource">—</div>
+        <div class="kpi-sub" id="kpiTopSourcePct">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">需要車位</div>
+        <div class="kpi-value" id="kpiParking">—</div>
+        <div class="kpi-sub" id="kpiParkingPct">佔比</div>
+      </div>
+    </div>
+
+    <div class="insight-bar">
+      <div class="insight-icon">◆</div>
+      <div class="insight-text" id="insightText">正在分析…</div>
+    </div>
+
+    <div class="chart-full">
+      <div class="chart-card">
+        <div class="chart-title">每週填單趨勢 <span>WEEKLY TREND</span></div>
+        <div class="chart-wrap medium"><canvas id="chartTrend"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">房型需求分布 <span>ROOM TYPE</span></div>
+        <div class="chart-wrap"><canvas id="chartRoom"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">購屋用途分布 <span>PURPOSE</span></div>
+        <div class="chart-wrap"><canvas id="chartPurpose"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">坪數需求分布 <span>SIZE</span></div>
+        <div class="chart-wrap"><canvas id="chartSize"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-full">
+      <div class="chart-card">
+        <div class="chart-title">購屋預算分布 <span>BUDGET RANGE</span></div>
+        <div class="chart-wrap medium"><canvas id="chartBudget"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">客戶來源管道 <span>CHANNEL</span></div>
+        <div class="chart-wrap tall"><canvas id="chartSource"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">年齡分布 <span>AGE GROUP</span></div>
+        <div class="chart-wrap tall"><canvas id="chartAge"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">居住區域 TOP 10 <span>AREA</span></div>
+        <div class="chart-wrap tall"><canvas id="chartArea"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">職業分布 TOP 10 <span>OCCUPATION</span></div>
+        <div class="chart-wrap tall"><canvas id="chartOccupation"></canvas></div>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <div class="table-header">
+        <h3>最新填單明細（最新 60 筆）</h3>
+        <span class="table-count" id="tableCount">—</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>房型</th><th>預算</th><th>坪數</th>
+              <th>用途</th><th>車位</th><th>職業</th><th>區域</th>
+              <th>年齡</th><th>來源</th><th>填單時間</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <img style="height:24px; opacity:0.4; display:block; margin:0 auto 12px;"
+       src="260227-115 新濠信義LOGO字(白色).png" alt="" onerror="this.style.display='none'"/>
+  新濠信義｜客戶分析儀表板｜內部使用
+</footer>
+
+<script>
+/* ══════════════════════════════
+   內嵌資料（從 SurveyCake CSV 匯入）
+   欄位: [房型,預算,坪數,用途,車位,職業,區域,年齡,來源,時間,秒數,IP]
+══════════════════════════════ */
+const EMBEDDED = [["2房","1500萬以下","20坪","置產","沒有","自營商","大安區","31-40歲","親友/已購客介紹","2026/2/15 07:56","63","2001:b400:e38f:14c0:c0ab:2a92:414c:b07"],["2房","3000-3500萬","20坪","置產","有","自營商","信義區","41-50歲","FB(臉書)","2026/2/15 13:30","138","2402:7500:5e5:6ddd::3794:4702"],["1房","1500萬以下","10坪","置產","沒有","教師","大安區","41-50歲","FB(臉書)","2026/2/15 23:22","62","2402:7500:504:9e82:598:a675:84e7:6696"],["2房","2500-3000萬","20坪","首購","有","科技業","南港區","31-40歲","FB(臉書)","2026/2/16 06:36","89","123.110.50.58"],["1房","1500-2000萬","10坪","置產","沒有","電子業","樹林區","31-40歲","IG","2026/2/16 12:17","364","111.249.244.244"],["2房","3500萬以上","20坪","投資","有","服務業","外縣市","31-40歲","FB(臉書)","2026/2/16 20:06","62","2001:b400:e43b:7697:d829:126c:7bc0:619d"],["2房","3000-3500萬","20坪","投資","有","金融業","松山區","41-50歲","FB(臉書)","2026/2/17 02:15","42","2401:e180:8c50:2740:e472:cd85:a40b:ce87"],["1房","1500萬以下","10坪","首購","沒有","醫護業","士林區","31-40歲","IG","2026/2/17 08:02","67","203.160.72.224"],["1房","2000-2500萬","10坪","投資","沒有","金融業","大同區","41-50歲","FB(臉書)","2026/2/17 08:53","56","101.14.5.174"],["1房","1500萬以下","10坪","投資","有","餐飲業","新北市其他區","31-40歲","IG","2026/2/18 00:55","73","150.129.73.121"],["2房","2500-3000萬","26坪","置產","沒有","金融業","信義區","51-60歲","FB(臉書)","2026/2/18 22:04","70","106.1.48.220"],["2+1房","3000-3500萬","26坪","投資","有","退休","士林區","51-60歲","Google廣告","2026/2/19 17:48","256","2401:e180:8d81:6fbe:73d0:ace1:a21e:59db"],["2房","3500萬以上","20坪","置產","沒有","自營商","大安區","31-40歲","591、樂居","2026/2/20 03:11","79","2001:b011:6c07:bb38:ddb4:4baa:a6b9:c479"],["2+1房","3500萬以上","其他","首購","有","醫師","信義區","31-40歲","FB(臉書)","2026/2/20 08:54","56","2001:b400:e44c:433d:acee:4687:1e34:ab78"],["2房","3000-3500萬","26坪","置產","有","醫護業","文山區","31-40歲","IG","2026/2/20 15:44","112","2402:7500:49a:292c:9810:35b8:3e28:cfd4"],["1房","1500萬以下","10坪","置產","有","金融業","中和區","41-50歲","FB(臉書)","2026/2/20 22:28","77","116.241.208.227"],["1房","1500-2000萬","10坪","置產","沒有","公務員","三重區","41-50歲","FB(臉書)","2026/2/21 09:15","63","2001:b400:e250:5cb0:4d0d:a908:65ad:a521"],["1房","1500萬以下","10坪","置產","沒有","教師","大安區","41-50歲","FB(臉書)","2026/2/21 10:01","91","61.71.32.50"],["1房","1500萬以下","10坪","置產","沒有","其他","三重區","51-60歲","FB(臉書)","2026/2/22 02:44","90","180.92.1.24"],["2+1房","1500-2000萬","26坪","首購","有","科技業","其他","51-60歲","FB(臉書)","2026/2/22 08:53","45","2a09:bac1:7400:38::50:b2"],["2房","3500萬以上","20坪","置產","沒有","自營商","大安區","31-40歲","591、樂居","2026/2/23 02:15","74","2001:b400:e358:a4ec:940b:d8e5:5044:ff43"],["2+1房","2000-2500萬","其他","贈與","有","金融業","文山區","51-60歲","FB(臉書)","2026/2/23 11:49","567","2402:7500:598:7a8a::5ea6:1d4e"],["2+1房","2000-2500萬","其他","投資","有","金融業","新北市其他區","51-60歲","親友/已購客介紹","2026/2/23 11:57","140","2402:7500:598:7a8a::5ea6:1d4e"],["1房","1500萬以下","其他","投資","沒有","金融業","永和區","41-50歲","FB(臉書)","2026/2/24 15:36","58","2402:7500:47a:9123::2de3:762"],["2+1房","3500萬以上","26坪","首購","有","其他","外縣市","31-40歲","FB(臉書)","2026/2/26 02:14","92","36.228.252.161"],["2房","1500-2000萬","20坪","首購","有","其他","外縣市","31-40歲","IG","2026/2/26 22:21","253","2402:7500:5e3:d1fe:c110:53bf:4b4:6cf9"],["2+1房","1500萬以下","20坪","首購","沒有","物流業","萬華區","31-40歲","Google廣告","2026/2/26 22:44","118","2001:b400:e2f1:77ee:443a:a5ff:fe00:d451"],["2房","1500萬以下","其他","投資","有","家庭主婦","新莊區","51-60歲","Google廣告","2026/2/28 17:56","193","2402:7500:4d5:9dd1::3014:76b8"],["2房","3500萬以上","26坪","置產","有","自營商","信義區","41-50歲","FB(臉書)","2026/3/1 02:17","89","2402:7500:4f5:8798::63cc:b160"],["2房","1500-2000萬","20坪","贈與","有","服務業","其他","41-50歲","FB(臉書)","2026/3/1 02:37","88","27.242.66.71"],["2+1房","2000-2500萬","其他","投資","有","金融業","文山區","51-60歲","IG","2026/3/1 18:26","89","2402:7500:598:7a8a::5ea6:1d4e"],["2房","1500萬以下","10坪","首購","沒有","餐飲業","萬華區","31-40歲","Google廣告","2026/3/2 14:14","67","2001:b011:c:3860:fb32:1389:3c2f:6ba4"],["2房","1500萬以下","其他","首購","沒有","教師","松山區","41-50歲","Google廣告","2026/3/2 18:25","124","2401:e180:8d04:1b84:e0d4:812f:905c:2699"],["1房","1500萬以下","20坪","置產","沒有","其他","樹林區","41-50歲","Google廣告","2026/3/2 22:12","132","2401:e180:8c00:bcd7:50:e2ff:feed:3e5c"],["1房","2000-2500萬","10坪","置產","有","金融業","中山區","31-40歲","親友/已購客介紹","2026/3/3 16:55","63","2402:7500:499:608e:61db:29ba:8930:f319"],["2房","3000-3500萬","20坪","贈與","有","自營商","大安區","51-60歲","FB(臉書)","2026/3/3 18:11","202","123.194.152.108"],["2房","3500萬以上","20坪","置產","沒有","自營商","大安區","31-40歲","FB(臉書)","2026/3/3 21:32","76","2001:b011:6c08:15a5:7008:5d26:eccd:ede3"],["2房","1500-2000萬","20坪","置產","有","家庭主婦","板橋區","31-40歲","591、樂居","2026/3/3 22:50","101","1.171.225.46"],["2+1房","3500萬以上","其他","置產","有","科技業","外縣市","51-60歲","FB(臉書)","2026/3/4 08:24","117","125.229.21.96"],["2房","3500萬以上","20坪","置產","沒有","自營商","大安區","31-40歲","FB(臉書)","2026/3/4 18:02","56","2001:b011:6c08:15a5:90bc:1f00:8255:48c9"],["2房","2500-3000萬","26坪","首購","有","電子業","南港區","21-30歲","IG","2026/3/5 00:23","52","2001:b400:e2aa:4891:35b1:4e55:a6c3:667"],["1房","1500萬以下","其他","首購","沒有","教師","松山區","41-50歲","Google廣告","2026/3/5 17:51","69","2401:e180:8d04:1b84:e0d4:812f:905c:2699"],["1房","1500-2000萬","10坪","首購","有","公務員","新北市其他區","31-40歲","社群論壇","2026/3/6 11:05","63","2001:b400:e33c:8a45:6c51:50d6:625c:8a83"],["1房","2000-2500萬","20坪","置產","沒有","貿易商","信義區","41-50歲","親友/已購客介紹","2026/3/6 15:03","104","125.227.188.247"],["2房","2500-3000萬","26坪","置產","有","自營商","外縣市","41-50歲","FB(臉書)","2026/3/8 02:24","64","220.157.118.222"],["1房","1500-2000萬","10坪","投資","有","金融業","新莊區","31-40歲","FB(臉書)","2026/3/8 18:03","73","218.172.13.135"],["2房","2000-2500萬","20坪","首購","有","科技業","永和區","31-40歲","FB(臉書)","2026/3/9 01:09","69","2001:b011:13:101a:94d4:fd71:85f3:f5e2"],["2房","3500萬以上","26坪","首購","有","金融業","中正區","31-40歲","FB(臉書)","2026/3/9 16:32","55","2001:b400:e29e:29e2:1d92:8c66:91b3:ec6b"],["2房","2500-3000萬","26坪","贈與","沒有","自營商","大安區","51-60歲","戶外廣告看板","2026/3/9 20:28","80","2401:e180:8d50:b625:b051:60a1:10e8:18d8"],["1房","1500萬以下","10坪","置產","沒有","醫師","內湖區","31-40歲","IG","2026/3/9 20:55","35","2407:4d00:2c00:8753:f0b3:d87f:d51d:2668"],["2房","2500-3000萬","20坪","置產","有","其他","文山區","51-60歲","FB(臉書)","2026/3/9 22:09","298","36.230.25.52"],["1房","1500萬以下","10坪","首購","沒有","公務員","板橋區","31-40歲","部落客/網紅分享","2026/3/9 23:16","125","118.165.17.21"],["2房","2500-3000萬","20坪","首購","有","自營商","信義區","41-50歲","FB(臉書)","2026/3/10 00:07","195","2407:4d00:2c05:76c2:7051:f795:ea89:331b"],["2房","3500萬以上","26坪","首購","有","醫師","大安區","31-40歲","社群論壇","2026/3/10 00:17","152","2402:7500:488:a86e:9dc4:bb61:65d7:f87f"],["2房","2500-3000萬","26坪","置產","有","自營商","南港區","41-50歲","FB(臉書)","2026/3/10 03:05","223","2402:7500:4e3:dc1e::5969:f6d5"],["2+1房","3000-3500萬","26坪","首購","有","科技業","中正區","21-30歲","Google廣告","2026/3/10 06:58","125","2401:e180:8810:24bd:2884:71c7:3f7f:e717"],["2房","1500-2000萬","20坪","置產","有","自營商","中山區","51-60歲","FB(臉書)","2026/3/10 11:13","67","2402:7500:469:a45:3916:a44b:98d5:3cd9"],["2+1房","2500-3000萬","26坪","首購","有","金融業","大同區","31-40歲","IG","2026/3/10 15:36","40","2001:b400:e3fc:eb39:ed46:b886:74a3:84d7"],["2+1房","3500萬以上","26坪","首購","有","醫師","大安區","31-40歲","591、樂居","2026/3/10 16:01","148","2402:7500:488:a86e:9114:fd63:86c6:b7c9"],["2房","2000-2500萬","20坪","首購","沒有","營建業","信義區","21-30歲","591、樂居","2026/3/10 23:50","42","2407:4d00:2c08:7464:95e4:1077:4a15:3418"],["1房","1500萬以下","10坪","投資","沒有","金融業","永和區","41-50歲","FB(臉書)","2026/3/11 18:25","50","2402:7500:59b:b2c7::7071:af63"],["2房","1500-2000萬","20坪","置產","沒有","公務員","板橋區","31-40歲","FB(臉書)","2026/3/11 19:07","83","2001:b400:e29a:bcb5:893:5a9a:97ce:e14b"],["1房","1500萬以下","10坪","置產","有","科技業","文山區","31-40歲","FB(臉書)","2026/3/12 03:41","54","185.213.82.29"],["2房","2000-2500萬","26坪","首購","有","醫護業","大安區","31-40歲","FB(臉書)","2026/3/12 05:26","175","2001:b400:e270:7f9e:f441:2de2:c91b:e9c0"],["1房","1500萬以下","10坪","首購","沒有","生醫業","三重區","31-40歲","FB(臉書)","2026/3/12 12:13","81","2401:e180:8905:756:ad5d:d6d5:8573:fc49"],["2房","2000-2500萬","20坪","首購","有","製造業","板橋區","31-40歲","FB(臉書)","2026/3/12 12:59","63","42.70.254.210"],["1房","1500萬以下","10坪","置產","有","自營商","信義區","31-40歲","FB(臉書)","2026/3/12 20:47","66","220.130.52.74"],["2房","2000-2500萬","26坪","置產","有","其他","信義區","51-60歲","FB(臉書)","2026/3/13 21:57","82","2407:4d00:2c05:7660:110d:db2a:e949:4091"],["2房","1500-2000萬","20坪","置產","有","自營商","信義區","31-40歲","FB(臉書)","2026/3/14 00:21","98","2401:e180:8993:7a1:68ab:5b1b:70f5:fa9d"],["2房","3000-3500萬","20坪","置產","有","其他","中和區","31-40歲","社群論壇","2026/3/14 10:31","289","124.218.127.67"],["2房","2500-3000萬","26坪","置產","沒有","科技業","內湖區","41-50歲","社群論壇","2026/3/14 18:49","41","2001:b400:e24f:64fb:b805:220e:88ae:9375"],["2+1房","3500萬以上","26坪","置產","沒有","科技業","信義區","31-40歲","IG","2026/3/14 22:15","59","2001:b400:e3a8:88d8:6216:ef71:86be:55d2"],["1房","1500萬以下","10坪","首購","沒有","其他","松山區","41-50歲","Google廣告","2026/3/15 02:42","153","2001:b400:e2f1:88bf:507b:b8ff:fe63:b3c5"],["2+1房","1500萬以下","其他","首購","有","電商","外縣市","31-40歲","FB(臉書)","2026/3/15 13:00","53","2001:b400:e3fa:407d:4820:8146:44a:4364"],["2房","2000-2500萬","26坪","置產","有","貿易商","板橋區","31-40歲","部落客/網紅分享","2026/3/15 19:36","62","2001:b400:e24b:7663:cc1b:86ab:beb7:b15a"],["2房","2500-3000萬","26坪","置產","有","其他","大安區","31-40歲","FB(臉書)","2026/3/15 20:18","54","2402:7500:405:e10a:f8ec:fa9e:9b66:31b7"],["2+1房","3500萬以上","26坪","置產","有","其他","松山區","51-60歲","FB(臉書)","2026/3/15 20:47","58","219.85.129.82"],["2+1房","1500-2000萬","26坪","置產","有","貿易商","板橋區","31-40歲","IG","2026/3/16 14:49","39","211.75.7.57"],["2+1房","3500萬以上","其他","置產","有","科技業","外縣市","51-60歲","FB(臉書)","2026/3/16 22:37","86","125.229.21.96"],["2+1房","3500萬以上","其他","贈與","有","科技業","文山區","51-60歲","Google廣告","2026/3/17 00:36","85","49.216.160.187"],["2房","3000-3500萬","20坪","首購","有","其他","北投區","31-40歲","FB(臉書)","2026/3/18 13:07","47","61.216.4.139"],["2房","2000-2500萬","20坪","置產","沒有","其他","其他","31-40歲","FB(臉書)","2026/3/18 14:02","54","2001:b400:e2dd:8d6a:79e:96a0:e875:fbc7"],["2+1房","3500萬以上","26坪","置產","有","科技業","三重區","41-50歲","FB(臉書)","2026/3/18 20:43","62","122.116.104.12"],["2房","2000-2500萬","20坪","首購","沒有","科技業","大安區","31-40歲","IG","2026/3/18 23:38","83","2402:7500:488:f273:f86f:2ac0:3880:482d"],["1房","1500萬以下","10坪","首購","有","公務員","新北市其他區","21-30歲","戶外廣告看板","2026/3/19 10:09","136","2001:b400:e28d:31fe:a5ef:581d:13d3:e81e"],["2房","2000-2500萬","20坪","首購","沒有","服務業","松山區","31-40歲","IG","2026/3/19 10:18","53","2402:7500:57a:9907:ed5b:37f5:36fc:6cac"],["1房","2000-2500萬","10坪","首購","有","金融業","中山區","31-40歲","Google廣告","2026/3/20 10:58","96","2402:7500:4e3:e30f:89b2:78c1:741f:acdd"],["1房","1500萬以下","10坪","首購","沒有","電子業","信義區","41-50歲","FB(臉書)","2026/3/20 12:39","74","2001:b400:e24c:bd9:8851:184b:bcbd:3edc"],["1房","1500-2000萬","10坪","首購","有","金融業","大同區","31-40歲","IG","2026/3/20 12:56","51","111.65.35.168"],["2房","2500-3000萬","20坪","置產","有","科技業","新店區","41-50歲","親友/已購客介紹","2026/3/20 13:40","65","2a00:79e1:2000:2c01:4460:43e2:3cf5:b2d"],["2+1房","3000-3500萬","26坪","置產","有","金融業","信義區","41-50歲","FB(臉書)","2026/3/20 17:56","73","2001:b400:e3fc:b203:683d:bc9:d4c9:de1f"],["2+1房","3500萬以上","其他","首購","有","自營商","中正區","51-60歲","FB(臉書)","2026/3/21 01:38","104","2001:b400:e20c:2fb9:743a:dcff:fe19:f2cd"],["2+1房","2000-2500萬","26坪","置產","有","電商","信義區","41-50歲","FB(臉書)","2026/3/21 17:58","60","1.162.15.34"],["2房","1500萬以下","20坪","首購","沒有","科技業","文山區","41-50歲","FB(臉書)","2026/3/22 01:00","58","2001:b400:e51b:5c71:9dbd:dbb9:80:7b89"],["2+1房","3000-3500萬","26坪","置產","有","家庭主婦","內湖區","41-50歲","社群論壇","2026/3/22 07:50","97","114.37.142.169"],["1房","1500萬以下","10坪","首購","有","服務業","外縣市","51-60歲","Google廣告","2026/3/22 08:11","180","2401:e180:8c00:693f:61a4:a72a:a847:e452"],["1房","1500萬以下","10坪","首購","有","服務業","外縣市","51-60歲","Google廣告","2026/3/22 08:43","2072","2401:e180:8c00:693f:61a4:a72a:a847:e452"],["1房","1500萬以下","10坪","首購","有","服務業","外縣市","51-60歲","Google廣告","2026/3/22 08:44","2150","2401:e180:8c00:693f:61a4:a72a:a847:e452"],["2房","2000-2500萬","其他","置產","沒有","科技業","信義區","31-40歲","FB(臉書)","2026/3/22 09:41","89","118.233.250.126"],["1房","1500-2000萬","20坪","置產","有","電子業","其他","41-50歲","FB(臉書)","2026/3/22 11:34","104","2402:7500:486:75a8:15e4:c32:7a50:8676"],["1房","1500萬以下","10坪","首購","沒有","科技業","信義區","31-40歲","社群論壇","2026/3/22 12:49","127","2401:e180:88f0:2421:a103:e60d:796e:d825"],["2房","1500萬以下","20坪","首購","沒有","餐飲業","松山區","31-40歲","IG","2026/3/22 16:32","50","2402:7500:488:ce2b:2554:efc2:fe5e:12d3"],["1房","1500萬以下","10坪","首購","沒有","餐飲業","信義區","31-40歲","IG","2026/3/22 22:01","64","2401:e180:88f4:5d8b:e04a:859:9c28:c314"],["2+1房","3500萬以上","其他","置產","有","貿易商","內湖區","31-40歲","Google廣告","2026/3/23 13:35","87","49.156.44.90"],["2房","1500萬以下","10坪","首購","有","科技業","大安區","31-40歲","IG","2026/3/23 15:52","56","2001:b011:15:311b:651b:25e5:3b2b:c55c"],["2房","2000-2500萬","10坪","置產","沒有","金融業","大安區","31-40歲","社群論壇","2026/3/23 21:06","68","150.117.250.154"],["2房","1500-2000萬","20坪","置產","沒有","製造業","信義區","31-40歲","FB(臉書)","2026/3/23 23:38","49","2001:b011:7:171e:a12a:9e4f:28dc:edec"],["2房","1500-2000萬","26坪","首購","有","美容業","信義區","31-40歲","IG","2026/3/24 00:04","54","36.231.128.213"],["1房","1500萬以下","10坪","置產","沒有","餐飲業","信義區","41-50歲","IG","2026/3/24 00:13","120","2001:b400:e2af:1306:ad25:a5f1:d0fa:66f3"],["2房","2000-2500萬","20坪","首購","沒有","科技業","信義區","31-40歲","FB(臉書)","2026/3/25 09:30","43","220.128.122.253"],["2房","2000-2500萬","20坪","投資","有","服務業","信義區","41-50歲","FB(臉書)","2026/3/25 16:59","155","2001:b011:2008:d751:1da7:80a7:a31a:2a42"],["1房","1500-2000萬","10坪","首購","沒有","科技業","信義區","31-40歲","FB(臉書)","2026/3/25 19:59","40","2001:b400:e29d:cee2:2c0d:24f:6ce:8ad1"],["2房","1500萬以下","20坪","置產","有","教師","南港區","31-40歲","FB(臉書)","2026/3/25 22:53","29","2001:b400:e2df:39fa:a44b:bd15:9b8:68e6"],["1房","1500萬以下","10坪","首購","沒有","營建業","鶯歌區","31-40歲","IG","2026/3/26 00:19","103","2402:7500:4fb:71f4:59f3:78ba:d75c:d290"],["2房","2500-3000萬","26坪","置產","有","電子業","大安區","31-40歲","IG","2026/3/26 04:18","61","2402:7500:587:d30c:a818:8cf0:633e:287"],["2房","2500-3000萬","20坪","置產","沒有","家庭主婦","外縣市","41-50歲","FB(臉書)","2026/3/26 18:41","930","2001:b400:e3d2:76ca:34c0:ac84:4d8f:330c"],["2房","2000-2500萬","26坪","首購","沒有","金融業","淡水區","31-40歲","IG","2026/3/26 18:59","62","111.241.155.74"],["1房","1500萬以下","10坪","首購","沒有","金融業","大安區","31-40歲","FB(臉書)","2026/3/26 20:33","53","2001:b011:3:58b3:e8fd:e350:a54c:64bf"],["2房","2500-3000萬","26坪","置產","有","製造業","南港區","51-60歲","FB(臉書)","2026/3/27 08:31","68","123.193.192.184"],["2房","1500萬以下","20坪","首購","沒有","其他","信義區","31-40歲","FB(臉書)","2026/3/27 09:16","85","2400:d802:3cf5:5900:4002:ac6d:4c76:1bcc"],["1房","1500-2000萬","10坪","首購","沒有","其他","信義區","31-40歲","FB(臉書)","2026/3/27 12:47","89","2001:b011:200a:d8f0:10c3:2d29:ae0d:ffe"],["1房","1500-2000萬","20坪","首購","有","其他","信義區","31-40歲","戶外廣告看板","2026/3/27 17:22","83","2402:7500:579:9bd2:cf7:5efb:21a7:f344"],["2房","3000-3500萬","20坪","首購","有","醫護業","北投區","31-40歲","IG","2026/3/27 21:10","117","60.250.215.50"],["1房","1500萬以下","10坪","首購","沒有","貿易商","松山區","41-50歲","IG","2026/3/28 11:14","116","2402:7500:579:d186:d553:caf9:312:58bc"],["2房","3000-3500萬","26坪","首購","有","金融業","內湖區","31-40歲","親友/已購客介紹","2026/3/28 20:55","53","2001:b400:e2f1:bd8:1122:ed1d:a0ba:bb0c"],["1房","1500萬以下","10坪","首購","沒有","其他","板橋區","41-50歲","IG","2026/3/28 23:19","59","2401:e180:8810:ab8:3105:5551:b36b:6643"],["1房","1500萬以下","26坪","投資","沒有","醫護業","外縣市","31-40歲","IG","2026/3/29 07:28","102","2001:b400:e2f1:1a2a:75ca:c163:7cb1:752a"],["1房","1500萬以下","10坪","首購","沒有","餐飲業","信義區","31-40歲","FB(臉書)","2026/3/29 13:14","84","2401:e180:8850:efa7:bcca:649:8fc4:92b8"],["1房","1500萬以下","10坪","首購","沒有","金融業","外縣市","51-60歲","Google廣告","2026/3/29 20:54","100","49.217.117.237"],["2房","1500萬以下","其他","贈與","沒有","其他","永和區","41-50歲","FB(臉書)","2026/3/29 23:55","112","2401:e180:8c60:4177:b123:40da:e890:4a3e"],["2房","2000-2500萬","26坪","贈與","有","律師","大同區","51-60歲","戶外廣告看板","2026/3/30 00:56","85","114.39.83.176"],["2房","1500-2000萬","20坪","首購","有","金融業","信義區","51-60歲","戶外廣告看板","2026/3/30 06:43","130","101.10.245.231"],["2+1房","2500-3000萬","26坪","置產","有","貿易商","松山區","31-40歲","FB(臉書)","2026/3/30 09:41","116","1.34.227.63"],["1房","1500萬以下","10坪","首購","沒有","餐飲業","信義區","41-50歲","FB(臉書)","2026/3/30 12:26","89","2402:7500:499:4d16:8182:afe7:789e:8b3d"],["1房","1500萬以下","10坪","置產","沒有","公務員","大安區","51-60歲","戶外廣告看板","2026/3/30 13:20","105","117.56.178.154"],["1房","1500萬以下","10坪","置產","沒有","公務員","信義區","51-60歲","戶外廣告看板","2026/3/30 13:23","65","61.220.196.107"],["2+1房","1500-2000萬","26坪","首購","有","其他","中和區","41-50歲","Google廣告","2026/3/30 20:36","80","2401:e180:8dd4:45a6:b1a0:af15:afc6:33ce"],["2+1房","2000-2500萬","26坪","置產","有","製造業","內湖區","51-60歲","FB(臉書)","2026/3/30 22:57","112","123.193.192.184"],["2+1房","3500萬以上","26坪","置產","有","其他","松山區","31-40歲","FB(臉書)","2026/3/31 00:02","81","1.171.191.11"],["2+1房","1500-2000萬","26坪","置產","有","服務業","新莊區","51-60歲","親友/已購客介紹","2026/3/31 20:32","132","2402:7500:569:6827:99c7:646b:f8a1:32b6"],["2房","3000-3500萬","其他","置產","有","自營商","大同區","41-50歲","FB(臉書)","2026/3/31 23:47","48","118.166.168.11"],["2+1房","1500-2000萬","26坪","置產","沒有","美容業","板橋區","41-50歲","FB(臉書)","2026/4/1 00:35","80","220.141.17.204"],["1房","1500-2000萬","10坪","首購","沒有","製造業","大安區","21-30歲","FB(臉書)","2026/4/1 12:23","36","2401:e180:8831:98a2:199b:50df:8c4d:f9fe"],["1房","1500萬以下","10坪","首購","有","醫護業","信義區","31-40歲","IG","2026/4/1 13:35","39","2402:7500:489:a329:14d:e999:addb:f771"],["2房","1500-2000萬","26坪","首購","有","其他","士林區","31-40歲","親友/已購客介紹","2026/4/2 00:00","191","2407:4d00:1c03:79ed:22:a303:5671:e763"],["2+1房","1500-2000萬","其他","首購","有","醫護業","松山區","41-50歲","IG","2026/4/2 06:33","159","2600:8802:f96:c00:fc71:8c57:edde:1e9"],["2+1房","3500萬以上","其他","置產","有","自營商","松山區","31-40歲","IG","2026/4/2 15:11","48","2001:b400:e247:9a31:21c3:2046:36b8:19f2"],["2房","2500-3000萬","20坪","置產","有","其他","信義區","51-60歲","戶外廣告看板","2026/4/2 18:21","150","2001:b400:e248:f999:4f7:4a55:30b1:1c54"],["2房","1500-2000萬","20坪","置產","沒有","營建業","信義區","31-40歲","戶外廣告看板","2026/4/2 20:38","65","2401:e180:8dd5:cb01:f58a:9349:ac13:4dc"],["1房","1500-2000萬","20坪","首購","沒有","金融業","三峽區","31-40歲","FB(臉書)","2026/4/2 21:22","82","2001:b400:e283:b055:3dd4:bda7:6958:7c29"],["1房","1500萬以下","10坪","首購","沒有","退休","大同區","71歲以上","FB(臉書)","2026/4/3 12:31","354","54.177.163.48"],["1房","1500-2000萬","10坪","置產","有","科技業","外縣市","41-50歲","FB(臉書)","2026/4/3 18:58","66","2001:b400:e64d:2899:dd3d:14fd:90d6:a365"],["2房","2500-3000萬","20坪","置產","有","其他","外縣市","31-40歲","IG","2026/4/3 19:44","99","111.246.235.26"],["2+1房","2000-2500萬","其他","首購","有","服務業","內湖區","31-40歲","Google廣告","2026/4/3 23:06","187","123.192.106.102"],["1房","1500萬以下","10坪","置產","有","醫護業","信義區","51-60歲","IG","2026/4/4 13:19","160","2402:7500:406:696a:10ec:c063:ddaf:db49"],["2房","2000-2500萬","20坪","置產","有","金融業","信義區","41-50歲","FB(臉書)","2026/4/4 19:01","99","111.243.85.7"],["2房","1500-2000萬","其他","首購","有","自營商","汐止區","31-40歲","IG","2026/4/4 21:07","229","2407:4b00:2c02:d40:10a8:8bce:2b87:cad9"],["2房","3500萬以上","20坪","首購","有","科技業","南港區","31-40歲","FB(臉書)","2026/4/4 23:24","42","36.227.93.249"],["1房","1500萬以下","10坪","首購","有","金融業","內湖區","21-30歲","FB(臉書)","2026/4/5 01:39","104","111.248.196.75"],["1房","2500-3000萬","20坪","首購","沒有","金融業","松山區","51-60歲","FB(臉書)","2026/4/5 21:23","70","36.227.103.145"],["2房","2000-2500萬","20坪","首購","有","科技業","松山區","31-40歲","IG","2026/4/5 23:21","61","2001:b011:2019:7bca:9152:7b95:3e8b:298a"],["2房","1500-2000萬","26坪","首購","沒有","貿易商","大安區","41-50歲","FB(臉書)","2026/4/6 08:46","124","58.114.197.107"],["2房","1500-2000萬","20坪","首購","有","科技業","信義區","31-40歲","FB(臉書)","2026/4/7 15:41","48","2402:7500:579:8dfa:e84b:4f9b:3663:712f"],["2房","2000-2500萬","20坪","置產","沒有","服務業","中山區","41-50歲","IG","2026/4/7 16:31","100","2401:e180:8811:2ad2:83b0:8f01:1e59:d4dd"],["1房","1500萬以下","10坪","首購","沒有","金融業","信義區","41-50歲","FB(臉書)","2026/4/8 23:20","47","219.70.125.218"],["2房","3000-3500萬","20坪","首購","有","科技業","大安區","31-40歲","FB(臉書)","2026/4/8 23:32","62","2401:e180:8c70:8516:9c68:41b9:275f:801c"],["1房","1500萬以下","10坪","首購","沒有","公務員","信義區","31-40歲","591、樂居","2026/4/9 12:28","48","2001:b400:e309:38e2:40e9:c2e0:b2c:8383"],["1房","1500萬以下","10坪","首購","有","自營商","中和區","31-40歲","IG","2026/4/10 09:06","64","115.43.133.12"],["2+1房","3500萬以上","26坪","置產","有","科技業","板橋區","31-40歲","FB(臉書)","2026/4/10 20:18","48","114.32.129.25"],["1房","1500萬以下","10坪","首購","有","貿易商","文山區","41-50歲","FB(臉書)","2026/4/10 23:10","37","2407:4d00:3c07:7c16:7428:2e09:bde1:6cb"],["1房","1500萬以下","10坪","首購","有","製造業","信義區","31-40歲","IG","2026/4/11 11:36","71","2401:e180:8830:1029:acfa:f508:30f4:365a"],["1房","1500-2000萬","26坪","首購","有","科技業","中正區","21-30歲","FB(臉書)","2026/4/11 12:22","67","114.27.11.101"],["1房","1500-2000萬","10坪","首購","沒有","金融業","外縣市","31-40歲","社群論壇","2026/4/11 14:03","118","2402:7500:501:e5c5:48e3:a911:82c1:33a"],["2房","3000-3500萬","26坪","置產","有","科技業","內湖區","41-50歲","社群論壇","2026/4/11 17:57","55","2401:e180:8d01:334:39d0:e10d:5bce:a681"],["1房","1500萬以下","10坪","首購","有","其他","大安區","31-40歲","社群論壇","2026/4/11 18:57","63","2001:b011:15:5a25:2082:91ef:3dda:b56b"],["2房","1500-2000萬","26坪","置產","有","金融業","內湖區","31-40歲","IG","2026/4/11 23:38","40","118.169.148.97"],["2房","2000-2500萬","20坪","置產","沒有","家庭主婦","大安區","51-60歲","FB(臉書)","2026/4/12 09:29","89","2001:b400:e3f0:5ecb:ff77:cb25:fc23:fb0d"],["1房","1500萬以下","10坪","首購","有","科技業","信義區","21-30歲","FB(臉書)","2026/4/12 11:08","189","2407:4d00:2c08:7702:1974:ed25:c2f2:4913"],["2房","2500-3000萬","20坪","首購","沒有","服務業","大安區","31-40歲","戶外廣告看板","2026/4/12 11:37","152","2402:7500:49a:334:5fa:6b6a:50f9:bafa"],["1房","1500-2000萬","10坪","首購","沒有","醫護業","三重區","31-40歲","IG","2026/4/12 16:25","101","2001:b400:e28f:d43b:69fe:3bad:de9e:76d9"],["2房","1500萬以下","20坪","首購","有","科技業","信義區","31-40歲","IG","2026/4/12 23:42","51","61.230.132.167"],["2房","1500-2000萬","20坪","首購","有","家庭主婦","文山區","41-50歲","Google廣告","2026/4/13 09:25","64","2401:e180:8dd1:a753:6079:270d:7475:d8f0"],["2房","1500萬以下","20坪","首購","有","其他","信義區","61-70歲","FB(臉書)","2026/4/13 10:26","82","36.231.150.132"],["2+1房","3500萬以上","其他","贈與","有","醫護業","其他","51-60歲","FB(臉書)","2026/4/13 19:19","70","2001:b400:e7de:b24d:306f:62a3:a52b:529f"],["2+1房","2500-3000萬","26坪","置產","有","科技業","南港區","31-40歲","Google廣告","2026/4/13 20:17","55","2a02:26f7:b784:4dc0:0:d800:0:e"],["1房","2000-2500萬","20坪","首購","沒有","醫護業","信義區","21-30歲","IG","2026/4/13 23:26","64","2402:7500:468:1a5a:a494:4afa:ee86:aad7"],["2房","3000-3500萬","20坪","首購","沒有","科技業","大安區","31-40歲","FB(臉書)","2026/4/14 14:52","56","2407:4d00:4c05:20a0:14ab:eac6:d722:71d9"],["2房","2500-3000萬","26坪","置產","沒有","科技業","大同區","51-60歲","FB(臉書)","2026/4/14 16:42","1035","2401:e180:8dd0:23ac:faf7:ac6f:b334:e496"],["1房","1500萬以下","10坪","首購","沒有","公務員","信義區","21-30歲","FB(臉書)","2026/4/14 21:51","209","2402:7500:5e3:13::92d8:6d66"],["2房","2500-3000萬","20坪","首購","有","金融業","大安區","21-30歲","戶外廣告看板","2026/4/14 22:22","169","2001:b011:13:9850:5ce3:704d:a801:e7c9"],["1房","1500-2000萬","10坪","置產","有","電子業","南港區","31-40歲","IG","2026/4/14 22:28","54","2402:7500:57a:aa45::4dea:986c"],["2房","2000-2500萬","26坪","首購","沒有","自營商","汐止區","51-60歲","FB(臉書)","2026/4/15 11:25","121","111.71.106.25"],["2房","2500-3000萬","其他","首購","有","服務業","信義區","31-40歲","IG","2026/4/15 12:25","122","2407:4d00:2c09:7ed8:5cac:449d:82ca:6448"],["2房","1500萬以下","20坪","置產","有","教師","外縣市","41-50歲","Google廣告","2026/4/15 16:53","96","2001:b400:e504:148:e93b:ed1d:d590:41e1"],["2房","2000-2500萬","20坪","投資","有","電商","大安區","21-30歲","Google廣告","2026/4/15 20:41","105","118.150.13.84"],["1房","1500萬以下","10坪","置產","沒有","科技業","外縣市","41-50歲","FB(臉書)","2026/4/15 20:58","71","2001:b011:5c0c:1940:6cb3:53e2:d383:5b32"],["2房","2000-2500萬","20坪","首購","有","科技業","松山區","31-40歲","FB(臉書)","2026/4/15 23:12","106","2407:4d00:3c06:86ad:549b:c479:2a3b:ebef"],["1房","1500萬以下","10坪","置產","沒有","科技業","外縣市","41-50歲","FB(臉書)","2026/4/15 23:33","67","2001:b011:5c0c:1940:6cb3:53e2:d383:5b32"],["2房","2500-3000萬","26坪","置產","有","自營商","信義區","51-60歲","FB(臉書)","2026/4/16 00:15","229","2407:4d00:ac00:2147:1015:3536:fbc6:d5fc"],["2房","1500萬以下","20坪","置產","沒有","公務員","中正區","41-50歲","IG","2026/4/16 17:08","73","2001:b400:e207:3403:6179:a3d:aeb2:8b0a"],["2房","1500-2000萬","20坪","首購","有","營建業","文山區","31-40歲","FB(臉書)","2026/4/16 19:59","41","2401:e180:8ddc:4a05:cb14:f3fb:f00e:d21a"],["2房","2500-3000萬","26坪","首購","有","貿易商","新莊區","31-40歲","IG","2026/4/17 00:38","76","124.218.120.116"],["1房","1500萬以下","10坪","首購","沒有","自營商","中山區","31-40歲","社群論壇","2026/4/17 13:24","78","2402:7500:577:7320:c561:d9d8:7482:a20"],["1房","1500萬以下","10坪","置產","沒有","服務業","中和區","51-60歲","FB(臉書)","2026/4/17 13:31","71","2402:7500:5fb:88cb:9855:73cd:f2e0:fde8"],["2房","2000-2500萬","20坪","首購","有","科技業","信義區","31-40歲","IG","2026/4/17 14:36","79","2001:b400:e24b:c6bb:a6fe:2926:f594:b71c"],["2房","2000-2500萬","26坪","首購","沒有","金融業","大安區","21-30歲","FB(臉書)","2026/4/17 14:37","37","2402:7500:4f5:46d5:a023:6a3b:b0c7:a714"],["2房","2500-3000萬","26坪","首購","沒有","金融業","大安區","21-30歲","IG","2026/4/17 21:16","44","118.232.48.180"],["2房","1500萬以下","20坪","首購","有","其他","中正區","41-50歲","IG","2026/4/18 18:27","59","118.167.6.50"],["2房","3500萬以上","26坪","置產","有","製造業","外縣市","31-40歲","FB(臉書)","2026/4/18 21:53","70","36.230.146.232"],["2房","1500萬以下","20坪","首購","有","科技業","內湖區","31-40歲","IG","2026/4/18 22:10","47","2001:b400:e282:eb97:b80c:ab:8c05:a86d"],["2房","1500萬以下","20坪","首購","沒有","金融業","松山區","41-50歲","FB(臉書)","2026/4/18 23:26","47","114.37.133.144"],["2房","2000-2500萬","20坪","首購","沒有","科技業","信義區","31-40歲","IG","2026/4/19 12:49","49","2402:7500:900:3b9c:fcdf:cb44:f97f:9722"],["2房","3000-3500萬","26坪","首購","沒有","金融業","大安區","21-30歲","FB(臉書)","2026/4/19 17:11","32","118.232.48.180"],["2房","3500萬以上","26坪","置產","有","製造業","外縣市","31-40歲","FB(臉書)","2026/4/19 23:21","50","2001:b011:7012:fae4:2c13:2638:a7b2:207f"],["2房","2500-3000萬","20坪","置產","有","自營商","外縣市","51-60歲","FB(臉書)","2026/4/20 10:32","290","2001:b400:e3d4:352e:d86e:ad56:c228:7440"],["1房","1500萬以下","20坪","置產","沒有","教師","大安區","31-40歲","FB(臉書)","2026/4/20 17:59","57","2001:b011:4003:771a:e97d:50e3:24e0:b552"],["2房","2500-3000萬","20坪","首購","有","醫護業","信義區","31-40歲","IG","2026/4/20 23:00","448","2402:7500:5e4:302c:a404:b53a:bd9d:262b"],["1房","2500-3000萬","26坪","首購","有","電子業","內湖區","31-40歲","IG","2026/4/21 04:18","52","2401:e180:8dd4:d63e:9553:3bcd:b9d:6de1"],["2房","1500萬以下","20坪","首購","有","其他","大安區","31-40歲","Google廣告","2026/4/21 05:30","162","2001:b400:e28c:1068:30fd:8fff:fe70:2d06"],["2房","1500-2000萬","20坪","置產","有","公務員","中和區","51-60歲","FB(臉書)","2026/4/21 10:13","349","2001:b400:e294:d85d:e4df:7c02:f773:7e5f"],["1房","1500萬以下","20坪","投資","有","服務業","板橋區","41-50歲","IG","2026/4/21 15:14","50","2001:b400:e176:7443:7044:c222:9f0:d286"],["1房","1500-2000萬","10坪","首購","沒有","服務業","信義區","31-40歲","FB(臉書)","2026/4/21 16:26","52","36.229.38.133"],["2房","2500-3000萬","其他","首購","有","教師","信義區","31-40歲","FB(臉書)","2026/4/21 20:48","85","118.233.250.106"],["2房","2500-3000萬","20坪","置產","有","科技業","外縣市","31-40歲","FB(臉書)","2026/4/22 00:21","46","211.23.183.158"],["2房","3000-3500萬","26坪","投資","有","退休","樹林區","41-50歲","Google廣告","2026/4/22 03:31","146","2401:e180:8dd0:11a:e291:4b0c:f550:d60c"],["2房","2000-2500萬","26坪","置產","沒有","製造業","大安區","41-50歲","IG","2026/4/22 03:33","58","27.240.128.38"],["1房","1500萬以下","10坪","首購","有","電商","新北市其他區","31-40歲","IG","2026/4/22 07:54","71","2401:e180:8c10:ac77:4141:8f2a:4382:44f6"],["2房","1500-2000萬","20坪","首購","沒有","其他","內湖區","41-50歲","FB(臉書)","2026/4/22 14:52","49","2001:b400:e2f1:3bc1:17d1:2f46:97da:e9c9"],["1房","1500-2000萬","10坪","首購","沒有","教師","松山區","31-40歲","FB(臉書)","2026/4/22 21:40","44","2401:e180:8892:6682:d8f7:62a1:66c4:894a"],["2房","3500萬以上","26坪","置產","有","醫師","中和區","31-40歲","FB(臉書)","2026/4/23 08:41","55","2001:b400:e10e:a4cf:e527:7db9:845c:c32f"],["1房","1500萬以下","10坪","首購","沒有","貿易商","信義區","31-40歲","FB(臉書)","2026/4/23 12:58","40","2402:7500:506:7f87:9d28:316d:1bc3:87a9"],["1房","1500萬以下","10坪","置產","沒有","金融業","內湖區","31-40歲","IG","2026/4/23 13:26","74","2001:b400:e25f:50c2:2083:a6d0:591e:dfca"],["2房","3500萬以上","26坪","首購","有","醫護業","中和區","31-40歲","FB(臉書)","2026/4/23 22:04","38","115.43.74.6"],["2房","1500萬以下","20坪","首購","有","科技業","信義區","31-40歲","親友/已購客介紹","2026/4/24 00:51","76","61.230.145.107"],["1房","1500萬以下","10坪","置產","有","製造業","北投區","51-60歲","591、樂居","2026/4/24 21:13","459","2401:e180:88a2:9f9c:682f:2097:9c4c:a062"],["1房","2000-2500萬","其他","置產","沒有","電子業","大安區","41-50歲","FB(臉書)","2026/4/25 02:48","55","123.193.233.247"],["2房","1500-2000萬","26坪","置產","沒有","服務業","大安區","51-60歲","FB(臉書)","2026/4/25 04:10","96","2001:b400:e739:54c5:3d5a:b0a3:5074:3c69"],["1房","2000-2500萬","其他","置產","有","自營商","中山區","51-60歲","FB(臉書)","2026/4/25 10:38","63","114.36.42.6"]];
+
+/* ══════════════════════════════
+   欄位索引
+══════════════════════════════ */
+const COL = { room:0, budget:1, size:2, purpose:3, parking:4, occupation:5, area:6, age:7, source:8, time:9, ip:11 };
+
+/* ══════════════════════════════
+   時間解析 "2026/M/D HH:MM"
+══════════════════════════════ */
+function parseTime(str) {
+  if (!str) return null;
+  const m = str.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+}
+
+/* ══════════════════════════════
+   CSV 解析器
+══════════════════════════════ */
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  const result = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const row = []; let inQ = false, cur = '';
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      if (ch === '"') { if (inQ && line[j+1]==='"') { cur+='"'; j++; } else { inQ=!inQ; } }
+      else if (ch === ',' && !inQ) { row.push(cur.trim()); cur=''; }
+      else { cur+=ch; }
+    }
+    row.push(cur.trim());
+    result.push(row);
+  }
+  return result;
+}
+
+/* ══════════════════════════════
+   資料處理（IP 去重）
+══════════════════════════════ */
+function processData(rows) {
+  const data = rows.filter(r => r.length >= 9 && r[0]);
+  const ipMap = new Map();
+  for (const r of data) {
+    const ip = (r[COL.ip]||'').trim();
+    if (!ip) { ipMap.set('__'+Math.random(), r); continue; }
+    if (!ipMap.has(ip)) { ipMap.set(ip, r); }
+    else {
+      const ex = ipMap.get(ip);
+      if ((r[COL.time]||'') > (ex[COL.time]||'')) ipMap.set(ip, r);
+    }
+  }
+  const unique = [...ipMap.values()].sort((a,b) => (b[COL.time]||'').localeCompare(a[COL.time]||''));
+  return { all: data, unique };
+}
+
+/* ══════════════════════════════
+   統計工具
+══════════════════════════════ */
+function countBy(records, col) {
+  const c = {};
+  for (const r of records) { const v=(r[col]||'其他').trim(); c[v]=(c[v]||0)+1; }
+  return c;
+}
+function sortedEntries(obj, max) {
+  const s = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+  return max ? s.slice(0,max) : s;
+}
+function recentCount(records, days) {
+  const cutoff = Date.now() - days*86400000;
+  return records.filter(r => { const d=parseTime(r[COL.time]); return d && d.getTime()>=cutoff; }).length;
+}
+
+/* ══════════════════════════════
+   圖表
+══════════════════════════════ */
+Chart.register(ChartDataLabels);
+
+const GOLD = ['#b89660','#d4b483','#8a6f3e','#c8a870','#7a5f30','#e0c8a0','#6a5028','#5a4020'];
+const WARM = ['#b89660','#c0846a','#8a9660','#6a7898','#a06880','#6a8878','#9870a0','#c09060','#7090a8','#b87070'];
+let charts = {};
+function killCharts() { Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
+
+function donut(id, labels, data, colors) {
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors||GOLD, borderWidth:2, borderColor:'#fff' }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'58%',
+      layout:{ padding:8 },
+      plugins:{
+        legend:{ position:'right', labels:{ font:{size:12,family:"'Noto Serif TC'"}, color:'#2c2c2c', padding:12, boxWidth:13, boxHeight:13 }},
+        tooltip:{ callbacks:{ label:ctx=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return ` ${ctx.label}：${ctx.parsed}筆 (${((ctx.parsed/t)*100).toFixed(1)}%)`; }}},
+        datalabels:{
+          color:'#fff',
+          textShadowColor:'rgba(0,0,0,0.55)',
+          textShadowBlur:4,
+          font:{ size:13, weight:'bold', family:"'Noto Serif TC'" },
+          formatter:(value, ctx) => {
+            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            const pct = ((value/total)*100).toFixed(0);
+            return pct >= 6 ? pct+'%' : '';
+          }
+        }
+      }
+    }
+  });
+}
+
+function bar(id, labels, data, horiz, color) {
+  const ctx = document.getElementById(id).getContext('2d');
+  const maxVal = Math.max(...data);
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:color||'rgba(184,150,96,0.75)', borderColor:color||'#b89660', borderWidth:1, borderRadius:2 }]},
+    options:{ indexAxis: horiz?'y':'x', responsive:true, maintainAspectRatio:false,
+      clip: false,
+      layout:{ padding: horiz ? { right:36, top:4, bottom:4 } : { top:28, left:4, right:4 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:ctx=>` ${ctx.parsed[horiz?'x':'y']} 筆` }},
+        datalabels:{
+          anchor:'end',
+          align: horiz ? 'right' : 'top',
+          offset: 2,
+          color:'#2c2c2c',
+          font:{ size:12, weight:'bold', family:"'Noto Serif TC'" },
+          formatter: v => v
+        }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060'},
+            ...(horiz ? { max: maxVal*1.28, beginAtZero:true } : { suggestedMax: maxVal*1.25 }) },
+        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060'},
+            ...(horiz ? {} : { suggestedMax: maxVal*1.25 }) }
+      }
+    }
+  });
+}
+
+function line(id, labels, data) {
+  const ctx = document.getElementById(id).getContext('2d');
+  const maxVal = Math.max(...data);
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ data, label:'填單數', borderColor:'#b89660', backgroundColor:'rgba(184,150,96,0.08)', pointBackgroundColor:'#b89660', pointRadius:5, tension:0.35, fill:true, borderWidth:2 }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      clip: false,
+      layout:{ padding:{ top:28, right:16, left:8 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:ctx=>` ${ctx.parsed.y} 筆` }},
+        datalabels:{
+          anchor:'top', align:'top', offset:4,
+          color:'#2c2c2c',
+          font:{ size:12, weight:'bold', family:"'Noto Serif TC'" },
+          formatter: v => v
+        }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10,family:"'Noto Serif TC'"},color:'#7a7060',maxRotation:45} },
+        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060',stepSize:1}, beginAtZero:true, suggestedMax: maxVal*1.3 }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════
+   週趨勢
+══════════════════════════════ */
+function weeklyTrend(records) {
+  const wm = new Map();
+  for (const r of records) {
+    const d = parseTime(r[COL.time]);
+    if (!d) continue;
+    const dow = d.getDay();
+    const mon = new Date(d); mon.setDate(d.getDate() - dow + (dow===0?-6:1));
+    const key = `${mon.getMonth()+1}/${mon.getDate()}`;
+    wm.set(key, (wm.get(key)||0)+1);
+  }
+  const sorted = [...wm.entries()].sort((a,b)=>{
+    const [am,ad]=a[0].split('/').map(Number), [bm,bd]=b[0].split('/').map(Number);
+    return am!==bm ? am-bm : ad-bd;
+  });
+  return { labels: sorted.map(e=>e[0]), data: sorted.map(e=>e[1]) };
+}
+
+/* ══════════════════════════════
+   洞察摘要
+══════════════════════════════ */
+function insight(all, unique) {
+  const n = all.length, u = unique.length;
+  if (!n) return '尚無資料。';
+  const rc = countBy(all,COL.room), bc = countBy(all,COL.budget);
+  const pc = countBy(all,COL.purpose), sc = countBy(all,COL.source);
+  const ac = countBy(all,COL.age);
+  const [tr] = sortedEntries(rc), [tb] = sortedEntries(bc);
+  const [tp] = sortedEntries(pc), [ts] = sortedEntries(sc);
+  const [ta] = sortedEntries(ac);
+  const park = all.filter(r=>r[COL.parking]==='有').length;
+  const r30 = recentCount(all,30);
+  return `共 <strong>${n}</strong> 筆填單，近 30 天新增 <strong>${r30}</strong> 筆。`
+    +` 主力需求：<strong>${tr[0]}</strong>（${((tr[1]/n)*100).toFixed(0)}%），`
+    +` 預算集中：<strong>${tb[0]}</strong>（${((tb[1]/n)*100).toFixed(0)}%），`
+    +` 用途：<strong>${tp[0]}</strong>（${((tp[1]/n)*100).toFixed(0)}%）。`
+    +` 年齡主力：<strong>${ta[0]}</strong>，最有效管道：<strong>${ts[0]}</strong>（${((ts[1]/n)*100).toFixed(0)}%），`
+    +` <strong>${((park/n)*100).toFixed(0)}%</strong> 客戶有車位需求。`;
+}
+
+/* ══════════════════════════════
+   渲染全部
+══════════════════════════════ */
+const BUDGET_ORDER = ['1500萬以下','1500-2000萬','2000-2500萬','2500-3000萬','3000-3500萬','3500萬以上'];
+const AGE_ORDER    = ['21-30歲','31-40歲','41-50歲','51-60歲','61-70歲','71歲以上'];
+
+function renderAll(all, unique) {
+  killCharts();
+
+  const n = all.length, u = unique.length;
+
+  // KPI
+  const sc = countBy(all, COL.source);
+  const [ts] = sortedEntries(sc);
+  const park = all.filter(r=>r[COL.parking]==='有').length;
+  document.getElementById('kpiTotal').textContent   = n;
+  document.getElementById('kpiUnique').textContent  = u;
+  document.getElementById('kpiRecent').textContent  = recentCount(all,30);
+  document.getElementById('kpiTopSource').textContent = ts[0];
+  document.getElementById('kpiTopSourcePct').textContent = `佔 ${((ts[1]/n)*100).toFixed(1)}%`;
+  document.getElementById('kpiParking').textContent  = park;
+  document.getElementById('kpiParkingPct').textContent = `佔 ${((park/n)*100).toFixed(1)}%`;
+
+  // 洞察
+  document.getElementById('insightText').innerHTML = insight(all, unique);
+
+  // 時間 meta
+  const times = all.map(r=>r[COL.time]).filter(Boolean).sort();
+  const earliest = times[0]||'—', latest = times[times.length-1]||'—';
+  document.getElementById('updateTime').textContent = '資料更新：' + new Date().toLocaleString('zh-TW');
+  document.getElementById('dataRange').textContent  = earliest.slice(0,7) + ' ～ ' + latest.slice(0,7);
+
+  // 圖表 — 房型
+  const rc=countBy(all,COL.room);
+  const rOrder=['1房','2房','2+1房'];
+  const rL=rOrder.filter(k=>rc[k]), rD=rL.map(k=>rc[k]);
+  donut('chartRoom', rL, rD, ['#b89660','#d4b483','#8a6f3e']);
+
+  // 用途
+  const pc=countBy(all,COL.purpose);
+  const pe=sortedEntries(pc);
+  donut('chartPurpose', pe.map(e=>e[0]), pe.map(e=>e[1]), ['#b89660','#a06880','#6a8878','#9870a0']);
+
+  // 坪數
+  const szc=countBy(all,COL.size);
+  const szO=['10坪','20坪','26坪','其他'];
+  const szL=szO.filter(k=>szc[k]), szD=szL.map(k=>szc[k]||0);
+  donut('chartSize', szL, szD, ['#b89660','#c8a870','#8a6f3e','#e0c8a0']);
+
+  // 預算
+  const bc=countBy(all,COL.budget);
+  const bL=BUDGET_ORDER.filter(k=>bc[k]), bD=bL.map(k=>bc[k]||0);
+  bar('chartBudget', bL, bD, false, 'rgba(184,150,96,0.8)');
+
+  // 來源
+  const sce=sortedEntries(countBy(all,COL.source));
+  bar('chartSource', sce.map(e=>e[0]), sce.map(e=>e[1]), true, 'rgba(184,150,96,0.75)');
+
+  // 年齡
+  const agc=countBy(all,COL.age);
+  const agL=AGE_ORDER.filter(k=>agc[k]), agD=agL.map(k=>agc[k]||0);
+  bar('chartAge', agL, agD, false, 'rgba(160,104,128,0.75)');
+
+  // 區域
+  const are=sortedEntries(countBy(all,COL.area),10);
+  bar('chartArea', are.map(e=>e[0]), are.map(e=>e[1]), true, 'rgba(106,120,152,0.75)');
+
+  // 職業
+  const oce=sortedEntries(countBy(all,COL.occupation),10);
+  bar('chartOccupation', oce.map(e=>e[0]), oce.map(e=>e[1]), true, 'rgba(106,136,120,0.75)');
+
+  // 趨勢
+  const tr=weeklyTrend(all);
+  line('chartTrend', tr.labels, tr.data);
+
+  // 表格
+  const top60 = [...all].sort((a,b)=>(b[COL.time]||'').localeCompare(a[COL.time]||'')).slice(0,60);
+  document.getElementById('tableCount').textContent = `共 ${n} 筆（顯示最新 ${Math.min(60,n)} 筆）`;
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  const purposeCls = { '首購':'','置產':'','投資':'invest','贈與':'gift' };
+  top60.forEach((r,i) => {
+    const pur = r[COL.purpose]||'';
+    const tr2 = document.createElement('tr');
+    tr2.innerHTML = `
+      <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td><span class="badge badge-room">${r[COL.room]||'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.budget]||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.size]||'—'}</td>
+      <td><span class="badge badge-purpose ${purposeCls[pur]||''}">${pur||'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.parking]||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.occupation]||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.area]||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);">${r[COL.age]||'—'}</td>
+      <td><span class="badge badge-source">${r[COL.source]||'—'}</span></td>
+      <td class="td-time">${(r[COL.time]||'—')}</td>
+    `;
+    tbody.appendChild(tr2);
+  });
+}
+
+/* ══════════════════════════════
+   即時資料設定
+   1. 在 SurveyCake 後台 → 整合 → Google 試算表，連結您的帳號
+   2. 開啟 Google 試算表 → 檔案 → 共用 → 發布到網路
+      → 選擇工作表 → 格式選 CSV → 發布 → 複製網址
+   3. 將網址填入下方 SHEETS_CSV_URL
+   設定後資料會每 AUTO_REFRESH_MIN 分鐘自動更新一次
+══════════════════════════════ */
+const SHEETS_CSV_URL = '';   // 填入 Google Sheets 發布 CSV 網址
+const AUTO_REFRESH_MIN = 10; // 自動更新間隔（分鐘）
+
+let refreshTimer = null;
+let cachedAll = [], cachedUnique = [];
+
+function setInfo(msg) {
+  document.getElementById('toolbarInfo').textContent = msg;
+}
+
+/* ── 篩選器 ── */
+function toggleFilter() {
+  const panel = document.getElementById('filterPanel');
+  const btn   = document.getElementById('filterToggleBtn');
+  const open  = panel.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  btn.firstChild.textContent = (open ? '▲' : '▼') + ' 篩選條件 ';
+}
+
+function getChecked(groupId) {
+  return [...document.querySelectorAll(`#${groupId} input[type=checkbox]:checked`)].map(el => el.value);
+}
+
+function getFilterValues() {
+  return {
+    dateFrom : document.getElementById('fDateFrom').value,
+    dateTo   : document.getElementById('fDateTo').value,
+    room     : [...document.querySelectorAll('#fRoom input:checked')].map(e=>e.value),
+    size     : [...document.querySelectorAll('.filter-chips input[value$="坪"]:checked, .filter-chips input[value="其他"]:checked')].map(e=>e.value),
+    purpose  : [...document.querySelectorAll('.filter-chips input[value="首購"]:checked, .filter-chips input[value="置產"]:checked, .filter-chips input[value="投資"]:checked, .filter-chips input[value="贈與"]:checked')].map(e=>e.value),
+    budget   : [...document.querySelectorAll('.filter-chips input[value$="萬"]:checked, .filter-chips input[value$="以下"]:checked, .filter-chips input[value$="以上"]:checked, .filter-chips input[value*="萬"]:checked')].map(e=>e.value),
+  };
+}
+
+function countActiveFilters(f) {
+  return (f.dateFrom?1:0)+(f.dateTo?1:0)+f.room.length+f.size.length+f.purpose.length+f.budget.length;
+}
+
+function applyFilters(all, f) {
+  return all.filter(r => {
+    if (f.room.length    && !f.room.includes(r[COL.room]))     return false;
+    if (f.size.length    && !f.size.includes(r[COL.size]))     return false;
+    if (f.purpose.length && !f.purpose.includes(r[COL.purpose])) return false;
+    if (f.budget.length  && !f.budget.includes(r[COL.budget])) return false;
+    if (f.dateFrom || f.dateTo) {
+      const d = parseTime(r[COL.time]);
+      if (!d) return false;
+      if (f.dateFrom && d < new Date(f.dateFrom)) return false;
+      if (f.dateTo   && d > new Date(f.dateTo + 'T23:59:59')) return false;
+    }
+    return true;
+  });
+}
+
+function filterAndRender() {
+  const f = getFilterValues();
+  const n = countActiveFilters(f);
+  const badge = document.getElementById('filterBadge');
+  badge.textContent = n;
+  badge.style.display = n > 0 ? 'inline' : 'none';
+
+  const filteredAll    = n > 0 ? applyFilters(cachedAll, f)    : cachedAll;
+  const filteredUnique = n > 0 ? applyFilters(cachedUnique, f) : cachedUnique;
+
+  if (!filteredAll.length) {
+    document.getElementById('filterResultInfo').textContent = '篩選結果：0 筆';
+    renderAll([], []);
+    return;
+  }
+  renderAll(filteredAll, filteredUnique);
+  document.getElementById('filterResultInfo').textContent =
+    n > 0 ? `篩選結果：${filteredAll.length} 筆（共 ${cachedAll.length} 筆）` : '';
+}
+
+function clearFilters() {
+  document.querySelectorAll('.filter-panel input[type=checkbox]').forEach(el => el.checked = false);
+  document.getElementById('fDateFrom').value = '';
+  document.getElementById('fDateTo').value   = '';
+  document.getElementById('filterBadge').style.display = 'none';
+  document.getElementById('filterResultInfo').textContent = '';
+  renderAll(cachedAll, cachedUnique);
+}
+
+/* ── 資料載入 ── */
+function storeAndRender(all, unique, source) {
+  cachedAll = all; cachedUnique = unique;
+  filterAndRender();
+  const now = new Date().toLocaleString('zh-TW');
+  setInfo(`${source}｜${all.length} 筆（去重後 ${unique.length} 筆）｜${now}`);
+}
+
+function parseAndRender(text, source) {
+  const rows = parseCSV(text);
+  const dataRows = (rows[0] && isNaN(parseTime(rows[0][9]||''))) ? rows.slice(1) : rows;
+  const { all, unique } = processData(dataRows);
+  if (!all.length) { setInfo('找不到有效資料，請確認格式。'); return; }
+  storeAndRender(all, unique, source);
+}
+
+async function fetchSheets() {
+  setInfo('更新中…');
+  try {
+    const res = await fetch(SHEETS_CSV_URL + '&t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    parseAndRender(text, '即時資料');
+  } catch(e) {
+    console.warn('Google Sheets 載入失敗，改用內嵌資料', e);
+    const { all, unique } = processData(EMBEDDED);
+    storeAndRender(all, unique, '即時資料載入失敗，顯示內嵌資料');
+  }
+}
+
+function manualRefresh() {
+  if (SHEETS_CSV_URL) fetchSheets();
+}
+
+function readFile(file) {
+  if (!file || !file.name.endsWith('.csv')) { alert('請選擇 .csv 檔案'); return; }
+  const reader = new FileReader();
+  reader.onload = e => parseAndRender(e.target.result, '上傳資料');
+  reader.readAsText(file, 'UTF-8');
+}
+
+document.getElementById('reloadInput').addEventListener('change', e => readFile(e.target.files[0]));
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (SHEETS_CSV_URL) {
+    document.getElementById('refreshBtn').style.display = 'inline-flex';
+    fetchSheets();
+    if (AUTO_REFRESH_MIN > 0) {
+      refreshTimer = setInterval(fetchSheets, AUTO_REFRESH_MIN * 60 * 1000);
+    }
+  } else {
+    const { all, unique } = processData(EMBEDDED);
+    storeAndRender(all, unique, '內嵌資料');
+  }
+});
+</script>
+</body>
+</html>
