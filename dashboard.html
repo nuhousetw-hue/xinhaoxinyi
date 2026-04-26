@@ -172,6 +172,7 @@
       <div style="display:flex;gap:10px;align-items:center;">
         <button id="filterToggleBtn" class="filter-toggle" onclick="toggleFilter()">▼ 篩選條件 <span id="filterBadge" class="filter-badge" style="display:none;">0</span></button>
         <button id="refreshBtn" class="upload-btn" style="display:none;" onclick="manualRefresh()">↻ 立即更新</button>
+        <button id="downloadBtn" class="upload-btn" style="display:none; background:var(--gold); border-color:var(--gold); color:#fff;" onclick="downloadUpdatedHTML()">↓ 下載更新後的 HTML</button>
         <label class="upload-btn">
           ↑ 上傳 CSV
           <input type="file" id="reloadInput" accept=".csv"/>
@@ -671,7 +672,7 @@ function renderAll(all, unique) {
    3. 將網址填入下方 SHEETS_CSV_URL
    設定後資料會每 AUTO_REFRESH_MIN 分鐘自動更新一次
 ══════════════════════════════ */
-const SHEETS_CSV_URL = '';   // 填入 Google Sheets 發布 CSV 網址
+const SHEETS_CSV_URL = 'https://script.google.com/macros/s/AKfycbxDgawSTqaICLFWZaIepqsadOe3L9HvPYCEAfoBHJ1sVRYbzaS2x8pVBe-LjPi2wvaDrw/exec';   // Google Apps Script 網址
 const AUTO_REFRESH_MIN = 10; // 自動更新間隔（分鐘）
 
 let refreshTimer = null;
@@ -754,6 +755,27 @@ function clearFilters() {
   renderAll(cachedAll, cachedUnique);
 }
 
+/* ── localStorage 儲存 ── */
+const LS_KEY = 'xhxy_rows_v1';
+
+function saveToLocal(rows) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(rows)); } catch(e) {}
+}
+function loadFromLocal() {
+  try { const d = localStorage.getItem(LS_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+}
+
+/* ── 下載更新後的 HTML（供上傳 GitHub） ── */
+function downloadUpdatedHTML() {
+  const src = document.documentElement.outerHTML;
+  const blob = new Blob([src], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'index.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /* ── 資料載入 ── */
 function storeAndRender(all, unique, source) {
   cachedAll = all; cachedUnique = unique;
@@ -767,18 +789,21 @@ function parseAndRender(text, source) {
   const dataRows = (rows[0] && isNaN(parseTime(rows[0][9]||''))) ? rows.slice(1) : rows;
   const { all, unique } = processData(dataRows);
   if (!all.length) { setInfo('找不到有效資料，請確認格式。'); return; }
+  saveToLocal(dataRows);
+  document.getElementById('downloadBtn').style.display = 'inline-flex';
   storeAndRender(all, unique, source);
 }
 
 async function fetchSheets() {
   setInfo('更新中…');
   try {
-    const res = await fetch(SHEETS_CSV_URL + '&t=' + Date.now());
+    const res = await fetch(SHEETS_CSV_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
+    if (!text || text.trim().startsWith('<')) throw new Error('非 CSV 格式');
     parseAndRender(text, '即時資料');
   } catch(e) {
-    console.warn('Google Sheets 載入失敗，改用內嵌資料', e);
+    console.warn('即時資料載入失敗', e);
     const { all, unique } = processData(EMBEDDED);
     storeAndRender(all, unique, '即時資料載入失敗，顯示內嵌資料');
   }
@@ -804,6 +829,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (AUTO_REFRESH_MIN > 0) {
       refreshTimer = setInterval(fetchSheets, AUTO_REFRESH_MIN * 60 * 1000);
     }
+    return;
+  }
+  const saved = loadFromLocal();
+  if (saved && saved.length) {
+    const { all, unique } = processData(saved);
+    document.getElementById('downloadBtn').style.display = 'inline-flex';
+    storeAndRender(all, unique, '本機已儲存資料');
   } else {
     const { all, unique } = processData(EMBEDDED);
     storeAndRender(all, unique, '內嵌資料');
