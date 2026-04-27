@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>新濠信義｜客戶分析儀表板</title>
+  <title>新濠信義｜客戶填單分析</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -167,13 +167,13 @@
        onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" alt="新濠信義"/>
   <span style="display:none; font-size:16px; letter-spacing:0.3em; color:#1a1a1a;">新濠信義</span>
   <div class="nav-links">
-    <span style="font-size:13px; letter-spacing:0.3em; color:var(--muted);">客戶分析儀表板 <span class="nav-badge">內部</span></span>
+    <span style="font-size:13px; letter-spacing:0.3em; color:var(--muted);">客戶填單分析 <span class="nav-badge">內部</span></span>
   </div>
 </nav>
 
 <div class="page-body">
   <div class="dash-header">
-    <h1>客戶分析儀表板</h1>
+    <h1>客戶填單分析</h1>
     <p>新濠信義 SurveyCake 預約填單分析</p>
     <div class="dash-meta">
       <div class="update-time" id="updateTime">—</div>
@@ -401,7 +401,7 @@
 <footer>
   <img style="height:24px; opacity:0.4; display:block; margin:0 auto 12px;"
        src="260227-115 新濠信義LOGO字(白色).png" alt="" onerror="this.style.display='none'"/>
-  新濠信義｜客戶分析儀表板｜內部使用
+  新濠信義｜客戶填單分析｜內部使用
 </footer>
 
 <script>
@@ -527,17 +527,17 @@ function donut(id, labels, data, colors) {
     options:{ responsive:true, maintainAspectRatio:false, cutout:'58%',
       layout:{ padding:8 },
       plugins:{
-        legend:{ position:'right', labels:{ font:{size:12,family:"'Noto Serif TC'"}, color:'#2c2c2c', padding:12, boxWidth:13, boxHeight:13 }},
+        legend:{ position:'right', labels:{ font:{size:14,family:"'Noto Serif TC'"}, color:'#2c2c2c', padding:14, boxWidth:15, boxHeight:15 }},
         tooltip:{ callbacks:{ label:ctx=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return ` ${ctx.label}：${ctx.parsed}筆 (${((ctx.parsed/t)*100).toFixed(1)}%)`; }}},
         datalabels:{
           color:'#fff',
-          textShadowColor:'rgba(0,0,0,0.55)',
-          textShadowBlur:4,
-          font:{ size:13, weight:'bold', family:"'Noto Serif TC'" },
+          textShadowColor:'rgba(0,0,0,0.65)',
+          textShadowBlur:5,
+          font:{ size:15, weight:'bold', family:"'Noto Serif TC'" },
           formatter:(value, ctx) => {
             const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
             const pct = ((value/total)*100).toFixed(0);
-            return pct >= 6 ? pct+'%' : '';
+            return pct >= 5 ? pct+'%' : '';
           }
         }
       }
@@ -560,17 +560,17 @@ function bar(id, labels, data, horiz, color) {
         datalabels:{
           anchor:'end',
           align: horiz ? 'right' : 'top',
-          offset: 2,
-          color:'#2c2c2c',
-          font:{ size:12, weight:'bold', family:"'Noto Serif TC'" },
+          offset: 3,
+          color:'#1a1a1a',
+          font:{ size:13, weight:'bold', family:"'Noto Serif TC'" },
           formatter: v => v
         }
       },
       scales:{
-        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060'},
-            ...(horiz ? { max: maxVal*1.28, beginAtZero:true } : { suggestedMax: maxVal*1.25 }) },
-        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060'},
-            ...(horiz ? {} : { suggestedMax: maxVal*1.25 }) }
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:12,family:"'Noto Serif TC'"},color:'#5a5040'},
+            ...(horiz ? { max: maxVal*1.30, beginAtZero:true } : { suggestedMax: maxVal*1.28 }) },
+        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:12,family:"'Noto Serif TC'"},color:'#5a5040'},
+            ...(horiz ? {} : { suggestedMax: maxVal*1.28 }) }
       }
     }
   });
@@ -590,14 +590,14 @@ function line(id, labels, data) {
         tooltip:{ callbacks:{ label:ctx=>` ${ctx.parsed.y} 筆` }},
         datalabels:{
           anchor:'top', align:'top', offset:4,
-          color:'#2c2c2c',
-          font:{ size:12, weight:'bold', family:"'Noto Serif TC'" },
+          color:'#1a1a1a',
+          font:{ size:13, weight:'bold', family:"'Noto Serif TC'" },
           formatter: v => v
         }
       },
       scales:{
-        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10,family:"'Noto Serif TC'"},color:'#7a7060',maxRotation:45} },
-        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:"'Noto Serif TC'"},color:'#7a7060',stepSize:1}, beginAtZero:true, suggestedMax: maxVal*1.3 }
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:12,family:"'Noto Serif TC'"},color:'#5a5040',maxRotation:45} },
+        y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:12,family:"'Noto Serif TC'"},color:'#5a5040',stepSize:1}, beginAtZero:true, suggestedMax: maxVal*1.3 }
       }
     }
   });
@@ -681,18 +681,18 @@ function renderAll(all, unique) {
   const rc=countBy(all,COL.room);
   const rOrder=['1房','2房','2+1房'];
   const rL=rOrder.filter(k=>rc[k]), rD=rL.map(k=>rc[k]);
-  donut('chartRoom', rL, rD, ['#b89660','#d4b483','#8a6f3e']);
+  donut('chartRoom', rL, rD, ['#b89660','#4a8ed4','#e0634a']);
 
   // 用途
   const pc=countBy(all,COL.purpose);
   const pe=sortedEntries(pc);
-  donut('chartPurpose', pe.map(e=>e[0]), pe.map(e=>e[1]), ['#b89660','#a06880','#6a8878','#9870a0']);
+  donut('chartPurpose', pe.map(e=>e[0]), pe.map(e=>e[1]), ['#5aad6f','#b89660','#4a8ed4','#e0634a']);
 
   // 坪數
   const szc=countBy(all,COL.size);
   const szO=['10坪','20坪','26坪','其他'];
   const szL=szO.filter(k=>szc[k]), szD=szL.map(k=>szc[k]||0);
-  donut('chartSize', szL, szD, ['#b89660','#c8a870','#8a6f3e','#e0c8a0']);
+  donut('chartSize', szL, szD, ['#4a8ed4','#b89660','#5aad6f','#9b59b6']);
 
   // 預算
   const bc=countBy(all,COL.budget);
